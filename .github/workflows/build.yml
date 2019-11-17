@@ -9,4 +9,8 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - name: Build
-        run: ./build.sh
+        run: |
+          docker build -t spark-builder:latest -f Dockerfile.build .
+          docker run -tv "$(pwd)/cache:/mnt" spark-builder:latest
+
+          ./make-image.sh

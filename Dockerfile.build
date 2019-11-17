@@ -1,0 +1,44 @@
+FROM openjdk:8-jdk
+
+WORKDIR /tmp
+
+RUN apt-get update && \
+    apt-get install -y \
+        file make automake gcc g++ \
+        python-setuptools texlive-latex-base texlive-fonts-extra qpdf texinfo \
+        linux-headers-amd64 libc-dev libxml2-dev libuv1-dev r-base-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN Rscript -e "install.packages(c('knitr', 'rmarkdown', 'devtools', 'e1071', 'survival'), repos='https://cloud.r-project.org/')" \
+    Rscript -e "devtools::install_version('testthat', version = '1.0.2', repos='https://cloud.r-project.org/')"
+
+RUN git clone https://github.com/apache/spark && \
+    cd spark
+
+WORKDIR /tmp/spark
+
+ENV SPARK_VERSION 2.4.4
+ENV HADOOP_VERSION 2.7.3
+
+RUN git checkout "v$SPARK_VERSION"
+
+ADD patches /tmp/patches
+RUN for patch in /tmp/patches/*; do \
+        git apply "$patch"; \
+    done
+
+
+RUN echo " \
+    ./dev/make-distribution.sh --name hadoop2.7 \
+        --pip --tgz \
+        --r -Psparkr \
+        -Phadoop-2.7 -Phadoop.version=$HADOOP_VERSION \
+        -Phive -Phive-thriftserver \
+        -Pkubernetes; \
+    cp spark-*.tgz /mnt \
+    " > /build && \
+    chmod +x /build
+
+CMD '/build'
+
+# TODO - Handle copying distribution
