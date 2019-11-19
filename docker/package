@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#vim: set ft=sh :
+set -e
+
+if [[ -z "${1:-}" ]]; then
+    echo "Spark version must be specified"
+    exit 1
+fi
+
+SPARK_VERSION="${1}"
+HADOOP_VERSION="${2:-2.7.3}"
+
+if [[ -d source ]]; then
+    cd source
+    git reset --hard master
+    git pull -r
+else
+    git clone https://github.com/apache/spark source
+    cd source
+fi
+
+git checkout "$SPARK_VERSION"
+
+for patch in ../patches/*; do
+    git apply "$patch";
+done
+
+./dev/make-distribution.sh --name hadoop2.7 \
+    --pip --tgz \
+    --r -Psparkr \
+    -Phadoop-2.7 -Phadoop.version=$HADOOP_VERSION \
+    -Phive -Phive-thriftserver \
+    -Pkubernetes
+
+cp spark-*.tgz /mnt

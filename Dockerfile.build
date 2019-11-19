@@ -10,34 +10,14 @@ RUN apt-get update && \
 RUN Rscript -e "install.packages(c('knitr', 'rmarkdown', 'devtools', 'e1071', 'survival'), repos='https://cloud.r-project.org/')" \
     Rscript -e "devtools::install_version('testthat', version = '1.0.2', repos='https://cloud.r-project.org/')"
 
-RUN useradd -M runner && \
-    install -d -o runner /opt/spark
-USER runner
+ADD patches /opt/spark/patches
+ADD docker/package /opt/spark/
 
-RUN git clone https://github.com/apache/spark /opt/spark/source
+RUN useradd -Md /opt/spark runner && \
+    chmod +x /opt/spark/package && \
+    chown -R runner /opt/spark
+
+USER runner
 WORKDIR /opt/spark
 
-ENV SPARK_VERSION 2.4.4
-ENV HADOOP_VERSION 2.7.3
-
-RUN cd source; git checkout "v$SPARK_VERSION"
-
-ADD patches /opt/spark/patches
-RUN cd source; \
-    for patch in /opt/spark/patches/*; do \
-        git apply "$patch"; \
-    done
-
-RUN echo " \
-    cd source; \
-    ./dev/make-distribution.sh --name hadoop2.7 \
-        --pip --tgz \
-        --r -Psparkr \
-        -Phadoop-2.7 -Phadoop.version=$HADOOP_VERSION \
-        -Phive -Phive-thriftserver \
-        -Pkubernetes; \
-    cp spark-*.tgz /mnt \
-    " > package && \
-    chmod +x package
-
-CMD 'bash /opt/spark/package'
+ENTRYPOINT ["/opt/spark/package"]
