@@ -1,7 +1,5 @@
 FROM openjdk:8-jdk
 
-WORKDIR /tmp
-
 RUN apt-get update && \
     apt-get install -y \
         file make automake gcc g++ \
@@ -12,26 +10,26 @@ RUN apt-get update && \
 RUN Rscript -e "install.packages(c('knitr', 'rmarkdown', 'devtools', 'e1071', 'survival'), repos='https://cloud.r-project.org/')" \
     Rscript -e "devtools::install_version('testthat', version = '1.0.2', repos='https://cloud.r-project.org/')"
 
-RUN useradd -M runner
+RUN useradd -M runner && \
+    install -d -o runner /opt/spark
 USER runner
 
-RUN git clone https://github.com/apache/spark && \
-    cd spark
-
-WORKDIR /tmp/spark
+RUN git clone https://github.com/apache/spark /opt/spark/source
+WORKDIR /opt/spark
 
 ENV SPARK_VERSION 2.4.4
 ENV HADOOP_VERSION 2.7.3
 
-RUN git checkout "v$SPARK_VERSION"
+RUN cd source; git checkout "v$SPARK_VERSION"
 
-ADD patches /tmp/patches
-RUN for patch in /tmp/patches/*; do \
+ADD patches /opt/spark/patches
+RUN cd source; \
+    for patch in /opt/spark/patches/*; do \
         git apply "$patch"; \
     done
 
-
 RUN echo " \
+    cd source; \
     ./dev/make-distribution.sh --name hadoop2.7 \
         --pip --tgz \
         --r -Psparkr \
@@ -39,9 +37,7 @@ RUN echo " \
         -Phive -Phive-thriftserver \
         -Pkubernetes; \
     cp spark-*.tgz /mnt \
-    " > /build && \
-    chmod +x /build
+    " > package && \
+    chmod +x package
 
-CMD '/build'
-
-# TODO - Handle copying distribution
+CMD 'bash /opt/spark/package'

@@ -20,6 +20,8 @@ jobs:
           docker logout
       - name: Build Spark from source
         run: docker run -tv "$(pwd)/cache:/mnt" ioben/spark-builder:latest
+      - name: DEBUG
+        run: ls -lah cache/
       - name: Build Spark docker image
         run: ./make-image.sh -r ioben/spark
       - name: Push built spark image
